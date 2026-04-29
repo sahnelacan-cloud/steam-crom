@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Steam 5x Crop Tool</title>
+</head>
+<body>
+
+<h2>GIF 5x Bölücü</h2>
+<input type="file" id="upload" accept="image/gif">
+<div id="results"></div>
+
+<script src="https://unpkg.com/gifuct-js/dist/gifuct.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gif.js.optimized/dist/gif.js"></script>
+
+<script>
+const input = document.getElementById("upload");
+const results = document.getElementById("results");
+
+input.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const buffer = await file.arrayBuffer();
+
+  const gif = window.gifuct.parseGIF(buffer);
+  const frames = window.gifuct.decompressFrames(gif, true);
+
+  const width = frames[0].dims.width;
+  const height = frames[0].dims.height;
+
+  const partWidth = Math.floor(width / 5);
+
+  let gifs = [];
+
+  for (let i = 0; i < 5; i++) {
+    let encoder = new GIF({
+      workers: 2,
+      quality: 10,
+      width: partWidth,
+      height: height
+    });
+
+    frames.forEach(frame => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+
+      const imageData = ctx.createImageData(width, height);
+      imageData.data.set(frame.patch);
+      ctx.putImageData(imageData, 0, 0);
+
+      const cropCanvas = document.createElement("canvas");
+      cropCanvas.width = partWidth;
+      cropCanvas.height = height;
+      const cropCtx = cropCanvas.getContext("2d");
+
+      cropCtx.drawImage(
+        canvas,
+        i * partWidth, 0, partWidth, height,
+        0, 0, partWidth, height
+      );
+
+      encoder.addFrame(cropCanvas, { delay: frame.delay });
+    });
+
+    gifs.push(encoder);
+  }
+
+  results.innerHTML = "İşleniyor...";
+
+  gifs.forEach((gif) => {
+    gif.on("finished", (blob) => {
+      const url = URL.createObjectURL(blob);
+      const img = document.createElement("img");
+      img.src = url;
+      results.appendChild(img);
+    });
+
+    gif.render();
+  });
+});
+</script>
+
+</body>
+</html>
